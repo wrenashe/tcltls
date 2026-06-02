@@ -166,8 +166,10 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 			if test -n "$openssldir"; then
 				if test "$do64bit" == 'yes' -a -d ${openssldir}/lib64; then
 					openssllibdir="$openssldir/lib64"
-				else
+				elif test -d ${openssldir}/lib; then
 					openssllibdir="$openssldir/lib"
+				else
+					openssllibdir="$openssldir"
 				fi
 			else
 				openssllibdir=''
@@ -187,6 +189,8 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		fi
 
 		if test -f "${openssllibdir}/libssl${LIBEXT}"; then
+			SSL_LIBS_PATH="-L$openssllibdir"
+		elif test "$LIBEXT" != '.a' -a -f "${openssllibdir}/libssl.a"; then
 			SSL_LIBS_PATH="-L$openssllibdir"
 		else
 			AC_MSG_ERROR([Unable to locate libssl${LIBEXT}])

@@ -31,12 +31,18 @@ PROJECT=tls
 # defined by rules for object files.
 PRJ_OBJS = $(TMP_DIR)\tls.obj \
 	$(TMP_DIR)\tlsBIO.obj \
+	$(TMP_DIR)\tlsDigest.obj \
+	$(TMP_DIR)\tlsEncrypt.obj \
+	$(TMP_DIR)\tlsInfo.obj \
 	$(TMP_DIR)\tlsIO.obj \
+	$(TMP_DIR)\tlsKDF.obj \
+	$(TMP_DIR)\tlsRand.obj \
+	$(TMP_DIR)\tlsUtil.obj \
 	$(TMP_DIR)\tlsX509.obj
 
 # Define any additional project include flags
 # SSL_INSTALL_FOLDER = with the OpenSSL installation folder following.
-PRJ_INCLUDES = -I"$(SSL_INSTALL_FOLDER)\include" -I"$(OPENSSL_INSTALL_DIR)\include" -I"$(TMP_DIR)"
+PRJ_INCLUDES = -I"$(SSL_INSTALL_FOLDER)\include" -I"$(TMP_DIR)"
 
 # Define any additional compiler flags that might be required for the project
 PRJ_DEFINES = -D NO_SSL2 -D NO_SSL3 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /D__STDC_WANT_SECURE_LIB__=1
@@ -53,8 +59,8 @@ PRJ_DEFINES = -D NO_SSL2 -D NO_SSL3 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_
 # On *nix libcrypto.so.* and libssl.so.* (where suffix is a version indicator).
 #
 PRJ_LIBS = \
-	"$(SSL_INSTALL_FOLDER)\lib\libssl.lib" \
-	"$(SSL_INSTALL_FOLDER)\lib\libcrypto.lib" \
+	"$(SSL_INSTALL_FOLDER)\libssl.lib" \
+	"$(SSL_INSTALL_FOLDER)\libcrypto.lib" \
 	User32.Lib WS2_32.Lib Gdi32.Lib AdvAPI32.Lib Crypt32.Lib
 
 # Define the standard targets which calls rules.vc

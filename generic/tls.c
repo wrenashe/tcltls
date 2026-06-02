@@ -1035,7 +1035,7 @@ CiphersObjCmd(
     SSL *ssl = NULL;
     STACK_OF(SSL_CIPHER) *sk;
     char buf[BUFSIZ];
-    int index, verbose = 0, use_supported = 0, version = 0;
+    int index, verbose = 0, use_supported = 0, version = 0, i;
     const SSL_METHOD *method = TLS_method();
 
     dprintf("Called");
@@ -1140,7 +1140,7 @@ CiphersObjCmd(
 	if (!verbose) {
 	    const char *cp;
 	    objPtr = Tcl_NewListObj(0, NULL);
-	    for (int i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
+	    for (i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
 		const SSL_CIPHER *c = sk_SSL_CIPHER_value(sk, i);
 		if (c == NULL) continue;
 
@@ -1152,7 +1152,7 @@ CiphersObjCmd(
 
 	} else {
 	    objPtr = Tcl_NewStringObj("",0);
-	    for (int i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
+	    for (i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
 		const SSL_CIPHER *c = sk_SSL_CIPHER_value(sk, i);
 		if (c == NULL) continue;
 
@@ -2786,20 +2786,23 @@ static int ConnectionInfoObjCmd(
 
     /* CA List */
     /* IF not a server, same as SSL_get0_peer_CA_list. If server same as SSL_CTX_get_client_CA_list */
-    listPtr = Tcl_NewListObj(0, NULL);
-    STACK_OF(X509_NAME) *ca_list;
-    if ((ca_list = SSL_get_client_CA_list(ssl)) != NULL) {
-	char buffer[BUFSIZ];
-	for (int i = 0; i < sk_X509_NAME_num(ca_list); i++) {
-	    X509_NAME *name = sk_X509_NAME_value(ca_list, i);
-	    if (name) {
-		X509_NAME_oneline(name, buffer, BUFSIZ);
-		Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(buffer, -1));
+    {
+	STACK_OF(X509_NAME) *ca_list;
+	int i;
+	listPtr = Tcl_NewListObj(0, NULL);
+	if ((ca_list = SSL_get_client_CA_list(ssl)) != NULL) {
+	    char buffer[BUFSIZ];
+	    for (i = 0; i < sk_X509_NAME_num(ca_list); i++) {
+		X509_NAME *name = sk_X509_NAME_value(ca_list, i);
+		if (name) {
+		    X509_NAME_oneline(name, buffer, BUFSIZ);
+		    Tcl_ListObjAppendElement(interp, listPtr, Tcl_NewStringObj(buffer, -1));
+		}
 	    }
 	}
+	LAPPEND_OBJ(interp, objPtr, "caList", listPtr);
+	LAPPEND_INT(interp, objPtr, "caListCount", sk_X509_NAME_num(ca_list));
     }
-    LAPPEND_OBJ(interp, objPtr, "caList", listPtr);
-    LAPPEND_INT(interp, objPtr, "caListCount", sk_X509_NAME_num(ca_list));
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
@@ -3470,6 +3473,13 @@ DLLEXPORT int Tls_Init(
     Tcl_CreateObjCommand(interp, "::tls::unimport", UnimportObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "::tls::unstack", UnimportObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "::tls::version", VersionObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
+
+    /* Register cryptography commands */
+    Tls_DigestCommands(interp);
+    Tls_EncryptCommands(interp);
+    Tls_InfoCommands(interp);
+    Tls_KDFCommands(interp);
+    Tls_RandCommands(interp);
 
     BuildInfoCommand(interp);
 

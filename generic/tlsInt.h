@@ -31,6 +31,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
+#include <openssl/evp.h>
 #include <openssl/opensslv.h>
 
 /* Windows needs to know which symbols to export. */
@@ -241,6 +242,24 @@ int		Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailure
 
 BIO		*BIO_new_tcl(State* statePtr, int flags);
 int		BIO_cleanup();
+
+/* Cryptography module command registration */
+int		Tls_DigestCommands(Tcl_Interp *interp);
+int		Tls_EncryptCommands(Tcl_Interp *interp);
+int		Tls_InfoCommands(Tcl_Interp *interp);
+int		Tls_KDFCommands(Tcl_Interp *interp);
+int		Tls_RandCommands(Tcl_Interp *interp);
+
+/* Cryptography utility functions */
+EVP_CIPHER	*Util_GetCipher(Tcl_Interp *interp, Tcl_Obj *cipherObj, int no_null);
+EVP_MD		*Util_GetDigest(Tcl_Interp *interp, Tcl_Obj *digestObj, int no_null);
+unsigned char	*Util_GetIV(Tcl_Interp *interp, Tcl_Obj *ivObj, Tcl_Size *len, int max, int no_null);
+unsigned char	*Util_GetKey(Tcl_Interp *interp, Tcl_Obj *keyObj, Tcl_Size *len, char *name, int max, int no_null);
+unsigned char	*Util_GetSalt(Tcl_Interp *interp, Tcl_Obj *saltObj, Tcl_Size *len, int max, int no_null);
+int		Util_GetInt(Tcl_Interp *interp, Tcl_Obj *dataObj, int *value, char *name, int min, int max);
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+EVP_MAC		*Util_GetMAC(Tcl_Interp *interp, Tcl_Obj *MacObj, int no_null);
+#endif
 
 #define PTR2INT(x) ((int) ((intptr_t) (x)))
 

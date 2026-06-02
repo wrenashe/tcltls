@@ -67,7 +67,7 @@ TEA_SETUP_COMPILER
 # and PKG_TCL_SOURCES.
 #-----------------------------------------------------------------------
 
-TEA_ADD_SOURCES([tls.c tlsBIO.c tlsIO.c tlsX509.c])
+TEA_ADD_SOURCES([tls.c tlsBIO.c tlsDigest.c tlsEncrypt.c tlsInfo.c tlsIO.c tlsKDF.c tlsRand.c tlsUtil.c tlsX509.c])
 TEA_ADD_HEADERS([generic/tls.h])
 TEA_ADD_INCLUDES([])
 TEA_ADD_LIBS([])
@@ -176,7 +176,11 @@ if test "${TEA_PLATFORM}" = "windows" ; then
 	TEA_ADD_LIBS([${TCLTLS_SSL_LIBS} ws2_32.lib Crypt32.lib])
     fi
 else
+    if test "$GCC" = "yes"; then
 	TEA_ADD_CFLAGS([${TCLTLS_SSL_CFLAGS} -Wno-deprecated-declarations])
+    else
+	TEA_ADD_CFLAGS([${TCLTLS_SSL_CFLAGS}])
+    fi
 	TEA_ADD_INCLUDES([${TCLTLS_SSL_INCLUDES}])
 	TEA_ADD_LIBS([${TCLTLS_SSL_LIBS}])
 fi

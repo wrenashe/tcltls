@@ -1345,7 +1345,7 @@ AC_DEFUN([TEA_CONFIG_CFLAGS], [
 		AS_IF([test "$GCC" = yes], [
 		    SHLIB_LD='${CC} -shared -Wl,-bexpall'
 		], [
-		    SHLIB_LD="/bin/ld -bhalt:4 -bM:SRE -bexpall -H512 -T512 -bnoentry"
+		    SHLIB_LD='${CC} -qmkshrobj -bexpall'
 		    LDFLAGS="$LDFLAGS -brtl"
 		])
 		SHLIB_LD="${SHLIB_LD} ${SHLIB_LD_FLAGS}"
