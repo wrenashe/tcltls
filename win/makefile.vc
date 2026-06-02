@@ -1,0 +1,153 @@
+#------------------------------------------------------------- -*- makefile -*-
+#
+# Makefile for TCL TLS extension
+#
+# Basic build, test and install
+#   nmake /f makefile.vc INSTALLDIR=c:\path\to\tcl TCLDIR=c:\path\to\tcl\sources
+#   nmake /f makefile.vc INSTALLDIR=c:\path\to\tcl TCLDIR=c:\path\to\tcl\sources test
+#   nmake /f makefile.vc INSTALLDIR=c:\path\to\tcl TCLDIR=c:\path\to\tcl\sources install
+#
+# For other build options (debug, static etc.),
+# See TIP 477 (https://core.tcl-lang.org/tips/doc/main/tip/477.md) for
+# detailed documentation.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+#------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# Project specific information
+#-------------------------------------------------------------------------
+
+# The name of the package
+PROJECT=tls
+
+!include "rules-ext.vc"
+
+# Define the object files and resource file that make up the extension.
+# Note the resource file does not makes sense if doing a static library build
+# hence it is under that condition. TMP_DIR is the output directory
+# defined by rules for object files.
+PRJ_OBJS = $(TMP_DIR)\tls.obj \
+	$(TMP_DIR)\tlsBIO.obj \
+	$(TMP_DIR)\tlsIO.obj \
+	$(TMP_DIR)\tlsX509.obj
+
+# Define any additional project include flags
+# SSL_INSTALL_FOLDER = with the OpenSSL installation folder following.
+PRJ_INCLUDES = -I"$(SSL_INSTALL_FOLDER)\include" -I"$(OPENSSL_INSTALL_DIR)\include" -I"$(TMP_DIR)"
+
+# Define any additional compiler flags that might be required for the project
+PRJ_DEFINES = -D NO_SSL2 -D NO_SSL3 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /D__STDC_WANT_SECURE_LIB__=1
+# /DTCLTLS_SSL_USE_FASTPATH
+# /DTCLEXT_TCLTLS_DEBUG
+
+#
+# SSL Libs:
+#    1. ${LIBCRYPTO}.dll
+#    2. ${LIBSSL}.dll
+# Where LIBCRYPTO (#1.) and LIBSSL (#2.) are defined as follows:
+#    v1.1: libcrypto-1.1-x64.dll and libssl-1.1-x64.dll
+#    v3: libcrypto-3-x64.dll and libssl-3-x64.dll
+# On *nix libcrypto.so.* and libssl.so.* (where suffix is a version indicator).
+#
+PRJ_LIBS = \
+	"$(SSL_INSTALL_FOLDER)\lib\libssl.lib" \
+	"$(SSL_INSTALL_FOLDER)\lib\libcrypto.lib" \
+	User32.Lib WS2_32.Lib Gdi32.Lib AdvAPI32.Lib Crypt32.Lib
+
+# Define the standard targets which calls rules.vc
+!include "targets.vc"
+
+.SUFFIXES: .c .obj .res .man
+
+#---------------------------------------------------------------------
+# Project specific targets
+#---------------------------------------------------------------------
+
+# Implicit rule to generate html from man files
+# NOTE: this requires doctools from tcllib hence it is not intended
+# to be run during install. Rather, use it to generate a new version
+# of HTML docs to be stored in the repository.
+TCLSH = "$(_INSTALLDIR)\..\bin\tclsh.exe"
+DTPLITE = "$(_INSTALLDIR)\..\bin\dtplite.tcl"
+
+make-docs-html:
+!IF EXIST($(DTPLITE))
+	"$(TCLSH)" "$(DTPLITE)" -o "$(ROOT)\doc\$(PROJECT).html" html "$(ROOT)\doc\$(PROJECT).man"
+!ENDIF
+
+make-docs-n:
+!IF EXIST($(DTPLITE))
+	"$(TCLSH)" "$(DTPLITE)" -o "$(ROOT)\doc\$(PROJECT).n" nroff "$(ROOT)\doc\$(PROJECT).man"
+!ENDIF
+
+make-docs:
+!IF EXIST($(DTPLITE))
+	"$(TCLSH)" "$(DTPLITE)" -o "$DOCDIR" html "$(ROOT)\doc"
+	"$(TCLSH)" "$(DTPLITE)" -o "$DOCDIR" nroff "$(ROOT)\doc"
+!ENDIF
+
+docs: make-docs-n make-docs-html
+
+all: setup default-target
+
+clean: default-clean
+
+realclean: default-hose
+
+# Explicit dependency rules
+$(PRJ_OBJS): $(TMP_DIR)\tls.tcl.h $(TMP_DIR)\tlsUuid.h
+
+# We must define a pkgindex target that will create a pkgIndex.tcl
+# file in the $(OUT_DIR) directory. We can just redirect to the
+# default-pkgindex target for our sample extension.
+pkgindex: default-pkgindex-tea
+
+# Create a C source file version of the script resources for inclusion in the
+# build so that only the compiled library file is needed for this extension to
+# load and operate.
+$(TMP_DIR)\tls.tcl.h: $(LIBDIR)\tls.tcl
+	"$(TCLSH)" << $(LIBDIR)\tls.tcl >$(TMP_DIR)\tls.tcl.h
+	set in [open [lindex $$argv 0] r]
+	while {[gets $$in line] != -1} {
+	    switch -regexp -- $$line "^$$" - {^\s*#} continue
+	    regsub -all {\\} $$line {\\\\} line
+	    regsub -all {"} $$line {\"} line
+	    puts "\"$$line\\n\""
+	}
+<<
+
+# Use manifest file which defines fossil/git commit id for build-info command
+$(TMP_DIR)\manifest.uuid:
+!IF EXIST($(ROOT)\manifest.uuid)
+	@copy "$(ROOT)\manifest.uuid" "$(TMP_DIR)\manifest.uuid"
+!ELSE
+!IF EXIST($(ROOT)\.git)
+	@copy "$(WIN_DIR)\gitmanifest.in" "$(TMP_DIR)\manifest.uuid"
+	@git rev-parse HEAD >>$(TMP_DIR)\manifest.uuid || echo unknown >>$(TMP_DIR)\manifest.uuid
+!ELSE
+	@echo unknown >$(TMP_DIR)\manifest.uuid
+!ENDIF
+!ENDIF
+
+$(TMP_DIR)\tlsUuid.h:	$(TMP_DIR)\manifest.uuid
+	@copy $(WIN_DIR)\tlsUuid.h.in+$(TMP_DIR)\manifest.uuid $(TMP_DIR)\tlsUuid.h
+	@echo: >>$(TMP_DIR)\tlsUuid.h
+
+# The default install target only installs binaries and scripts so add
+# an additional target for our documentation. Note this *adds* a target
+# since no commands are listed after it. The original targets for
+# install (from targets.vc) will remain.
+install: pkgindex default-install default-install-docs-html default-install-demos
+!IF EXIST($(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll)
+	@xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll" "$(PRJ_INSTALL_DIR)"
+!ENDIF
+!IF EXIST($(SSL_INSTALL_FOLDER)\bin\libssl-*-x64.dll)
+	@xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libssl-*-x64.dll" "$(PRJ_INSTALL_DIR)"
+!ENDIF
+
+# Test package
+test: default-test
+
