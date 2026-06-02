@@ -40,13 +40,12 @@ Tcl_Obj *String_to_Hex(unsigned char* input, int ilen) {
     unsigned char *data = Tcl_SetByteArrayLength(resultObj, (Tcl_Size)ilen*2);
     unsigned char *dptr = &data[0];
     const char *hex = "0123456789abcdef";
-    int i;
 
     if (resultObj == NULL) {
 	return NULL;
     }
 
-    for (i = 0; i < ilen; i++) {
+    for (int i = 0; i < ilen; i++) {
 	*dptr++ = (unsigned char)hex[(*iptr>>4)&0xF];
 	*dptr++ = (unsigned char)hex[(*iptr++)&0xF];
     }
@@ -106,8 +105,7 @@ Tcl_Obj *Tls_x509Extensions(Tcl_Interp *interp, X509 *cert) {
     }
 
     if ((exts = X509_get0_extensions(cert)) != NULL) {
-	int i;
-	for (i=0; i < X509_get_ext_count(cert); i++) {
+	for (int i=0; i < X509_get_ext_count(cert); i++) {
 	    X509_EXTENSION *ex = sk_X509_EXTENSION_value(exts, i);
 	    ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
 	    /* ASN1_OCTET_STRING *data = X509_EXTENSION_get_data(ex); */
@@ -260,18 +258,16 @@ const char *Tls_x509Purpose(X509 *cert) {
 Tcl_Obj *Tls_x509Purposes(Tcl_Interp *interp, X509 *cert) {
     Tcl_Obj *resultObj = Tcl_NewListObj(0, NULL);
     X509_PURPOSE *ptmp;
-    int i, j;
 
     if (resultObj == NULL) {
 	return NULL;
     }
 
-    for (i = 0; i < X509_PURPOSE_get_count(); i++) {
-	Tcl_Obj *tmpPtr;
+    for (int i = 0; i < X509_PURPOSE_get_count(); i++) {
 	ptmp = X509_PURPOSE_get0(i);
-	tmpPtr = Tcl_NewListObj(0, NULL);
+	Tcl_Obj *tmpPtr = Tcl_NewListObj(0, NULL);
 
-	for (j = 0; j < 2; j++) {
+	for (int j = 0; j < 2; j++) {
 	    int idret = X509_check_purpose(cert, X509_PURPOSE_get_id(ptmp), j);
 	    Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(j ? "CA" : "nonCA", -1));
 	    Tcl_ListObjAppendElement(interp, tmpPtr, Tcl_NewStringObj(idret == 1 ? "Yes" : "No", -1));
@@ -307,8 +303,7 @@ Tcl_Obj *Tls_x509Names(Tcl_Interp *interp, X509 *cert, int nid, BIO *bio) {
     }
 
     if ((names = (STACK_OF(GENERAL_NAME) *)X509_get_ext_d2i(cert, nid, NULL, NULL)) != NULL) {
-	int i;
-	for (i=0; i < sk_GENERAL_NAME_num(names); i++) {
+	for (int i=0; i < sk_GENERAL_NAME_num(names); i++) {
 	    const GENERAL_NAME *name = sk_GENERAL_NAME_value(names, i);
 
 	    len = BIO_to_Buffer(name && GENERAL_NAME_print(bio, (GENERAL_NAME *) name), bio, buffer, 1024);
@@ -402,15 +397,13 @@ Tcl_Obj *Tls_x509CrlDp(Tcl_Interp *interp, X509 *cert) {
     }
 
     if ((crl = (STACK_OF(DIST_POINT) *)X509_get_ext_d2i(cert, NID_crl_distribution_points, NULL, NULL)) != NULL) {
-	int i;
-	for (i=0; i < sk_DIST_POINT_num(crl); i++) {
+	for (int i=0; i < sk_DIST_POINT_num(crl); i++) {
 	    DIST_POINT *dp = sk_DIST_POINT_value(crl, i);
 	    DIST_POINT_NAME *distpoint = dp->distpoint;
 
 	    if (distpoint->type == 0) {
 		/* full-name GENERALIZEDNAME */
-		int j;
-		for (j = 0; j < sk_GENERAL_NAME_num(distpoint->name.fullname); j++) {
+		for (int j = 0; j < sk_GENERAL_NAME_num(distpoint->name.fullname); j++) {
 		    GENERAL_NAME *gen = sk_GENERAL_NAME_value(distpoint->name.fullname, j);
 		    int type;
 		    ASN1_STRING *uri = (ASN1_STRING *)GENERAL_NAME_get0_value(gen, &type);
@@ -421,8 +414,7 @@ Tcl_Obj *Tls_x509CrlDp(Tcl_Interp *interp, X509 *cert) {
 	    } else if (distpoint->type == 1) {
 		/* relative-name X509NAME */
 		STACK_OF(X509_NAME_ENTRY) *sk_relname = distpoint->name.relativename;
-		int j;
-		for (j = 0; j < sk_X509_NAME_ENTRY_num(sk_relname); j++) {
+		for (int j = 0; j < sk_X509_NAME_ENTRY_num(sk_relname); j++) {
 		    X509_NAME_ENTRY *e = sk_X509_NAME_ENTRY_value(sk_relname, j);
 		    ASN1_STRING *d = X509_NAME_ENTRY_get_data(e);
 		    LAPPEND_STR(interp, resultObj, (char *) NULL, (char *) ASN1_STRING_get0_data(d), (Tcl_Size) ASN1_STRING_length(d));
@@ -458,8 +450,7 @@ Tcl_Obj *Tls_x509Oscp(Tcl_Interp *interp, X509 *cert) {
     }
 
     if ((ocsp = X509_get1_ocsp(cert)) != NULL) {
-	int i;
-	for (i = 0; i < sk_OPENSSL_STRING_num(ocsp); i++) {
+	for (int i = 0; i < sk_OPENSSL_STRING_num(ocsp); i++) {
 	    LAPPEND_STR(interp, resultObj, NULL, sk_OPENSSL_STRING_value(ocsp, i), -1);
 	}
 	X509_email_free(ocsp);
@@ -493,8 +484,7 @@ Tcl_Obj *Tls_x509CaIssuers(Tcl_Interp *interp, X509 *cert) {
     }
 
     if ((ads = (STACK_OF(ACCESS_DESCRIPTION) *)X509_get_ext_d2i(cert, NID_info_access, NULL, NULL)) != NULL) {
-	int i;
-	for (i = 0; i < sk_ACCESS_DESCRIPTION_num(ads); i++) {
+	for (int i = 0; i < sk_ACCESS_DESCRIPTION_num(ads); i++) {
 	    ad = (ACCESS_DESCRIPTION *)sk_ACCESS_DESCRIPTION_value(ads, i);
 	    if (OBJ_obj2nid(ad->method) == NID_ad_ca_issuers && ad->location) {
 		if (ad->location->type == GEN_URI) {
@@ -536,14 +526,14 @@ Tcl_Obj *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
     unsigned long flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
     flags &= ~(unsigned long)ASN1_STRFLGS_ESC_MSB;
 
-    char *buffer = (char *)ckalloc(BUFSIZ > EVP_MAX_MD_SIZE ? BUFSIZ : EVP_MAX_MD_SIZE);
+    char *buffer = (char *)Tcl_Alloc(BUFSIZ > EVP_MAX_MD_SIZE ? BUFSIZ : EVP_MAX_MD_SIZE);
 
     dprintf("Called");
 
     if (interp == NULL || cert == NULL || bio == NULL || resultObj == NULL || buffer == NULL) {
 	Tcl_DecrRefCount(resultObj);
 	BIO_free(bio);
-	if (buffer != NULL) ckfree(buffer);
+	if (buffer != NULL) Tcl_Free(buffer);
 	return NULL;
     }
 
@@ -765,7 +755,7 @@ Tcl_Obj *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
 	if (allObj == NULL || certObj == NULL) {
 	    Tcl_DecrRefCount(allObj);
 	    BIO_free(bio);
-	    ckfree(buffer);
+	    Tcl_Free(buffer);
 	    return resultObj;
 	}
 
@@ -783,6 +773,6 @@ Tcl_Obj *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
     }
 
     BIO_free(bio);
-    ckfree(buffer);
+    Tcl_Free(buffer);
     return resultObj;
 }

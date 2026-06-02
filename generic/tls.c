@@ -1035,7 +1035,7 @@ CiphersObjCmd(
     SSL *ssl = NULL;
     STACK_OF(SSL_CIPHER) *sk;
     char buf[BUFSIZ];
-    int index, verbose = 0, use_supported = 0, version = 0, i;
+    int index, verbose = 0, use_supported = 0, version = 0;
     const SSL_METHOD *method = TLS_method();
 
     dprintf("Called");
@@ -1140,7 +1140,7 @@ CiphersObjCmd(
 	if (!verbose) {
 	    const char *cp;
 	    objPtr = Tcl_NewListObj(0, NULL);
-	    for (i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
+	    for (int i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
 		const SSL_CIPHER *c = sk_SSL_CIPHER_value(sk, i);
 		if (c == NULL) continue;
 
@@ -1152,7 +1152,7 @@ CiphersObjCmd(
 
 	} else {
 	    objPtr = Tcl_NewStringObj("",0);
-	    for (i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
+	    for (int i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
 		const SSL_CIPHER *c = sk_SSL_CIPHER_value(sk, i);
 		if (c == NULL) continue;
 
@@ -1478,7 +1478,7 @@ ImportObjCmd(
     if (DHparams && !*DHparams)	        DHparams        = NULL;
 
     /* new SSL state */
-    statePtr		= (State *) ckalloc((unsigned) sizeof(State));
+    statePtr = (State *) Tcl_Alloc((unsigned) sizeof(State));
     memset(statePtr, 0, sizeof(State));
 
     statePtr->flags	= flags;
@@ -1569,7 +1569,6 @@ ImportObjCmd(
     /* Create stacked channel */
     dprintf("Consuming Tcl channel %s", Tcl_GetChannelName(chan));
     statePtr->self = Tcl_StackChannel(interp, Tls_ChannelType(), statePtr, (TCL_READABLE | TCL_WRITABLE), chan);
-    dprintf("Created channel named %s", Tcl_GetChannelName(statePtr->self));
     if (statePtr->self == (Tcl_Channel) NULL) {
 	/*
 	 * No use of Tcl_EventuallyFree because no possible Tcl_Preserve.
@@ -1581,6 +1580,7 @@ ImportObjCmd(
 	Tcl_DStringFree(&upperChannelBlocking);
 	return TCL_ERROR;
     }
+    dprintf("Created channel named %s", Tcl_GetChannelName(statePtr->self));
 
     /* Restore channel config */
     Tcl_SetChannelOption(interp, statePtr->self, "-translation", Tcl_DStringValue(&upperChannelTranslation));
@@ -1665,7 +1665,7 @@ ImportObjCmd(
 	}
 
 	/* Build the complete protocol-list */
-	protos = (unsigned char *)ckalloc(protos_len);
+	protos = (unsigned char *)Tcl_Alloc(protos_len);
 	/* protocol-lists consist of 8-bit length-prefixed, byte strings */
 	for (i = 0, p = protos; i < cnt; i++) {
 	    char *str = Tcl_GetStringFromObj(list[i], &len);
@@ -1690,7 +1690,7 @@ done:	for (i = 0; i < cnt; i++) {
 	if (res != TCL_OK) {
 	    Tls_Free((tls_free_type *) statePtr);
 	    if (protos != NULL) {
-		ckfree(protos);
+		Tcl_Free((void *)protos);
 	    }
 	    return TCL_ERROR;
 	}
@@ -2423,7 +2423,7 @@ StatusObjCmd(
 
     dprintf("Called");
 
-    if (objc < 2 || objc > 3 || (objc == 3 && !strcmp(Tcl_GetString(objv[1]), "-local"))) {
+    if (objc < 2 || objc > 3 || (objc == 3 && strcmp(Tcl_GetString(objv[1]), "-local"))) {
 	Tcl_WrongNumArgs(interp, 1, objv, "?-local? channel");
 	return TCL_ERROR;
     }
@@ -2786,13 +2786,11 @@ static int ConnectionInfoObjCmd(
 
     /* CA List */
     /* IF not a server, same as SSL_get0_peer_CA_list. If server same as SSL_CTX_get_client_CA_list */
-    {
+    listPtr = Tcl_NewListObj(0, NULL);
 	STACK_OF(X509_NAME) *ca_list;
-	int i;
-	listPtr = Tcl_NewListObj(0, NULL);
 	if ((ca_list = SSL_get_client_CA_list(ssl)) != NULL) {
 	    char buffer[BUFSIZ];
-	    for (i = 0; i < sk_X509_NAME_num(ca_list); i++) {
+	for (int i = 0; i < sk_X509_NAME_num(ca_list); i++) {
 		X509_NAME *name = sk_X509_NAME_value(ca_list, i);
 		if (name) {
 		    X509_NAME_oneline(name, buffer, BUFSIZ);
@@ -2802,7 +2800,6 @@ static int ConnectionInfoObjCmd(
 	}
 	LAPPEND_OBJ(interp, objPtr, "caList", listPtr);
 	LAPPEND_INT(interp, objPtr, "caListCount", sk_X509_NAME_num(ca_list));
-    }
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
@@ -3179,6 +3176,7 @@ done:	    if (k_C != NULL) {
 void Tls_Clean(
     State *statePtr)		/* Client state for TLS socket */
 {
+    int do_release = 0;
     dprintf("Called");
 
     /*
@@ -3187,7 +3185,7 @@ void Tls_Clean(
     if (statePtr->timer != (Tcl_TimerToken) NULL) {
 	Tcl_DeleteTimerHandler(statePtr->timer);
 	statePtr->timer = NULL;
-	Tcl_Release((ClientData) statePtr);
+	do_release = 1;
     }
 
     /* Remove callbacks */
@@ -3206,7 +3204,7 @@ void Tls_Clean(
 
     /* Remove list of ALPN protocols */
     if (statePtr->protos) {
-	ckfree(statePtr->protos);
+	Tcl_Free((void *)statePtr->protos);
 	statePtr->protos = NULL;
     }
 
@@ -3232,6 +3230,9 @@ void Tls_Clean(
 	statePtr->ctx = NULL;
     }
 
+    if (do_release) {
+	Tcl_Release((ClientData) statePtr);
+    }
     dprintf("Returning");
 }
 
@@ -3261,7 +3262,7 @@ Tls_Free(
     dprintf("Called");
 
     Tls_Clean(statePtr);
-    ckfree(blockPtr);
+    Tcl_Free(blockPtr);
 }
 
 /*
